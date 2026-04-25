@@ -1,0 +1,174 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Meine Comic Sammlung</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00ff99">
+
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #111;
+      color: white;
+      text-align: center;
+      margin: 0;
+      padding: 10px;
+    }
+
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border-radius: 8px;
+      border: none;
+    }
+
+    button {
+      background: #00ff99;
+      cursor: pointer;
+    }
+
+    table {
+      width: 95%;
+      margin: 20px auto;
+      border-collapse: collapse;
+    }
+
+    td, th {
+      border: 1px solid #333;
+      padding: 10px;
+    }
+
+    img {
+      width: 50px;
+    }
+
+    .card {
+      background: #1a1a1a;
+      margin: 10px;
+      padding: 10px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>📚 Meine Comic Sammlung</h1>
+
+<input id="search" placeholder="Comic suchen...">
+<button onclick="searchComic()">Suchen</button>
+
+<h2>Ergebnisse</h2>
+<div id="results"></div>
+
+<h2>Meine Sammlung</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Cover</th>
+      <th>Titel</th>
+      <th>Seiten</th>
+      <th>Preis</th>
+      <th>❌</th>
+    </tr>
+  </thead>
+  <tbody id="collection"></tbody>
+</table>
+
+<h3>💰 Gesamt: <span id="totalPrice">0</span> €</h3>
+<h3>📖 Seiten: <span id="totalPages">0</span></h3>
+
+<script>
+let collection = JSON.parse(localStorage.getItem("comics")) || [];
+
+function save() {
+  localStorage.setItem("comics", JSON.stringify(collection));
+}
+
+function render() {
+  let table = document.getElementById("collection");
+  table.innerHTML = "";
+
+  let totalPrice = 0;
+  let totalPages = 0;
+
+  collection.forEach((c, i) => {
+    table.innerHTML += `
+      <tr>
+        <td><img src="${c.cover || 'https://via.placeholder.com/50'}"></td>
+        <td>${c.title}</td>
+        <td>${c.pages}</td>
+        <td>${c.price} €</td>
+        <td><button onclick="removeComic(${i})">❌</button></td>
+      </tr>
+    `;
+
+    totalPrice += Number(c.price);
+    totalPages += Number(c.pages);
+  });
+
+  document.getElementById("totalPrice").innerText = totalPrice;
+  document.getElementById("totalPages").innerText = totalPages;
+}
+
+function removeComic(i) {
+  collection.splice(i, 1);
+  save();
+  render();
+}
+
+async function searchComic() {
+  let query = document.getElementById("search").value;
+  if (!query) return;
+
+  let res = await fetch(`https://openlibrary.org/search.json?q=${query}`);
+  let data = await res.json();
+
+  let results = document.getElementById("results");
+  results.innerHTML = "";
+
+  data.docs.slice(0, 5).forEach(book => {
+    let title = book.title;
+    let pages = book.number_of_pages_median || 0;
+    let cover = book.cover_i
+      ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
+      : "https://via.placeholder.com/80";
+
+    let div = document.createElement("div");
+    div.className = "card";
+
+    div.innerHTML = `
+      <p>${title} (${pages} Seiten)</p>
+      <button onclick='addComic(${JSON.stringify(title)}, ${pages}, "${cover}")'>
+        ➕ Hinzufügen
+      </button>
+    `;
+
+    results.appendChild(div);
+  });
+}
+
+function addComic(title, pages, cover) {
+  let price = prompt("Preis (€):");
+  if (!price) return;
+
+  collection.push({ title, pages, price, cover });
+  save();
+  render();
+}
+
+render();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+</html>
